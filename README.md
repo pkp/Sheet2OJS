@@ -3,6 +3,7 @@
 Version 1.6.2.1 supports the schema for OJS 3.3. (tested with OJS 3.3.0-18, Dec 2024)
 
 The tool was originally created for "in-house use" at the Federation of Finnish Learned Societies (https://tsv.fi). The current version consitutes a major revision and includes new features. Feel free to use and develop further.
+This repo replaces the original repo at [https://github.com/ajnyga/tsvConverter](https://github.com/ajnyga/tsvConverter) which is no longer maintained.
 
 ## Installation
 
