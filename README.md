@@ -150,6 +150,9 @@ E.g. to add an issue description simply add a column `issueDescription`, or in F
 ## Licence
 The conversion tool is distributed under the GNU GPL v3.
 
+## CHanges in version 1.6.3.0 (Aug 2025)
+- Update to PHPOffice/PhpSpreadsheet 5.0
+
 ## CHanges in version 1.6.2.1 (Dec 2024)
 - Middle name removed from Readme as it is not supported by OJS
 
