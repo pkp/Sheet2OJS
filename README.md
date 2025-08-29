@@ -65,7 +65,7 @@ For larger imports it might be necessary to temporarily increase your OJS server
 | keywords | Word 1; Word 2; Word3 |  | x |
 | disciplines | History; Political science; Astronomy |  | x |
 | subjects | Subject1; Subject2; ... |  | x |
-| citations | Citation1; Citation2; ... |  | x |
+| citations | Citation1; Citation2; ... |  |   |
 | articleCopyrightYear | 2005 |  |   |
 | articleCopyrightHolder | "John Doe" |  |   |
 | articleLicenseUrl | http://creativecommons.org/licenses/by/4.0 |  |   |
