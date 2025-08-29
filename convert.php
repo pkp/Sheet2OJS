@@ -123,7 +123,7 @@ class ConvertExcel2PKPNativeXML {
 					$galleyDoiKey = str_replace('fileName', 'galleyDoi', $key);
 					if (isset($article[$galleyDoiKey]) && !empty($article[$galleyDoiKey])) {
 						$url = $article[$galleyDoiKey];
-						$filename = basename($url) . '.pdf';
+						$filename = basename($url) . '.pdf'; # PDF id just an assumption, should be improved
 						$article[$key] = $filename;
 						if (!is_file($this->fullFilesFolderPath.$filename)) {
 							$fileContent = file_get_contents($url);
@@ -416,9 +416,17 @@ class ConvertExcel2PKPNativeXML {
 							$elementName = strtolower($matches[1]);
 							$id = $matches[2];
 							if (strlen($article[$key]) > 0) {
-								$fileData[$id][$elementName] = $article[$key];
+								if (
+									(str_starts_with($article[$key], 'http://')) ||
+									(str_starts_with($article[$key], 'https://'))
+								) {
+									// if file name is a url, extract the base file name
+									$fileData[$id]['name'] = basename(parse_url($article[$key], PHP_URL_PATH)) . '.pdf'; # PDF id just an assumption, should be improved;
+									$fileData[$id]['href'] = $article[$key];
+								} else {
+									$fileData[$id][$elementName] = $article[$key];
+								}
 							} else {
-								$fileData[$id][$elementName] = "";
 							}
 							unset($article[$key]);
 						}
@@ -568,7 +576,7 @@ class ConvertExcel2PKPNativeXML {
 						$articleGalleysDOM = $this->processData($articleGalleysDOM, [$galleyData['locale'].':name' => $galleyData['label']]);
 						$articleGalleysDOM = $this->processData($articleGalleysDOM, ['seq' => $id-1]);
 
-						[$fileRef, $pos] = $this->createDOMElement($dom->ownerDocument, 'submission_file_ref');
+						[$fileRef, $pos] = $this->createDOMElement($dom->ownerDocument, 'submission_file_ref'); # Todo: This element should be replace in case of remote galleys
 						$articleGalleysDOM->appendChild($fileRef);
 
 						$fileRef->setAttribute('id', $pos+1);
@@ -594,6 +602,11 @@ class ConvertExcel2PKPNativeXML {
 				case str_ends_with($tagname, 'keywords'):
 				case str_ends_with($tagname, 'disciplines'):
 				case str_ends_with($tagname, 'subjects'):
+				case str_ends_with($tagname, 'references'):
+				case str_ends_with($tagname, 'citations'):
+					if (str_ends_with($tagname, 'references')) {
+						$tagname = str_replace('references', 'citations', $tagname); // citations is the correct tag name according to native.xsd
+					}
 					if (strlen($content) > 0) {
 						[$locale, $xmlTagName] = $this->splitLocaleTagName($tagname);
 						[$elementsDOM, $pos] = $this->createDOMElement($dom->ownerDocument, $xmlTagName);
@@ -601,6 +614,7 @@ class ConvertExcel2PKPNativeXML {
 	
 						$elementsDOM->setAttribute('locale', $locale);
 						
+						# we expect a ;-separated list of keywords, disciplines, subjects or citations
 						foreach (explode(';', $content) as $element) {
 							$elementDOM = $dom->ownerDocument->createElement(rtrim($xmlTagName, "s"), $element);
 							$elementsDOM->appendChild($elementDOM);
@@ -621,22 +635,32 @@ class ConvertExcel2PKPNativeXML {
 
 						$submissionFileData = $this->sortArrayElementsByKey($submissionFileData, $this->submissionFileElementOrder);
 	
-						$subFileDOM = $this->processData($subFileDOM, $submissionFileData);
+						# If href is provided, it will be handled below
+						$submissionFileDataNoHref = $submissionFileData;
+						unset($submissionFileDataNoHref['href']);
+						$subFileDOM = $this->processData($subFileDOM, $submissionFileDataNoHref);
 						
+						# create file element
 						$filePath = $this->normalizePath($this->fullFilesFolderPath . $submissionFileData['name']);
-						if (is_file($filePath)) {
-							$size = filesize($filePath);
+						if (is_file($filePath) || array_key_exists('href', $submissionFileData)) {
 							echo date('H:i:s') . " Adding file " . $filePath . EOL;
 							$file = $dom->ownerDocument->createElement('file');
 							$subFileDOM->appendChild($file);
 
-							$file->setAttribute('id', $pos+1);
-							$file->setAttribute('filesize', $size);
+							$file->setAttribute('id', $pos+1);				
 							$file->setAttribute('extension', pathinfo($submissionFileData['name'], PATHINFO_EXTENSION));
 
-							$embed = $dom->ownerDocument->createElement('embed', base64_encode(file_get_contents($filePath)));
-							$embed->setAttribute('encoding','base64');
-							$file->appendChild($embed);
+							if (array_key_exists('href', $submissionFileData)) {
+								# link to external file
+								$file = $this->processData($file, ['href' => $submissionFileData['href']]);
+							} else {
+								# embed file content as base64
+								$size = filesize($filePath);
+								$file->setAttribute('filesize', $size);
+								$embed = $dom->ownerDocument->createElement('embed', base64_encode(file_get_contents($filePath)));
+								$embed->setAttribute('encoding','base64');
+								$file->appendChild($embed);
+							}
 						} else {
 							echo "\033[1;33m" . date('H:i:s') . ' WARNING: file ' . $filePath . " not found !\033[0m" . PHP_EOL;
 						}
@@ -681,6 +705,11 @@ class ConvertExcel2PKPNativeXML {
 							$coverDOM->appendChild($child);
 						}
 					}
+					break;
+				case 'href':
+					$element = $dom->ownerDocument->createElement($tagname);
+					$element->setAttribute('src', $content);
+					$dom->appendChild($element);
 					break;
 				default:
 					// here we handle all text nodes
@@ -826,7 +855,7 @@ class ConvertExcel2PKPNativeXML {
 				$cell = $sheet->getCell($cellCoordinate);
 				if (strpos($header[$column], "abstract") !== false) {
 					if ($cell->getValue() instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
-						$value = $cellf->getValue();
+						$value = $cell->getValue();
 						$elements = $value->getRichTextElements();
 						$cellData = "";
 						foreach ($elements as $element) {

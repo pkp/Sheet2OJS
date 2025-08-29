@@ -65,6 +65,7 @@ For larger imports it might be necessary to temporarily increase your OJS server
 | keywords | Word 1; Word 2; Word3 |  | x |
 | disciplines | History; Political science; Astronomy |  | x |
 | subjects | Subject1; Subject2; ... |  | x |
+| citations | Citation1; Citation2; ... |  | x |
 | articleCopyrightYear | 2005 |  |   |
 | articleCopyrightHolder | "John Doe" |  |   |
 | articleLicenseUrl | http://creativecommons.org/licenses/by/4.0 |  |   |
@@ -106,7 +107,7 @@ If an article has for example three authors, the excel file should include colum
 ### Files & Galleys
 | Field | Description |  Required| Multilingual Support|
 |----------|:--------:|:--------:|:--------:|
-| fileName1|  Name of the file, "article1.pdf" or url for remote galley. If the fileName is empty and a galleyDoi is provided the file will automatically be downloaded if it doesn't exists in the files folder.| x |   |
+| fileName1|  Name of the file, "article1.pdf" or url for an url to let OJS download a galley file. If the fileName is empty and a galleyDoi is provided the file will automatically be downloaded if it doesn't exists in the files folder.| x |   |
 | fileGenre1|  Usually "Article Text"| x |   |
 | galleyLabel1|  Usually "PDF"| x | x |
 | galleyLocale1|  "en", "fi" etc. | x |   |
@@ -152,6 +153,8 @@ The conversion tool is distributed under the GNU GPL v3.
 
 ## CHanges in version 1.6.3.0 (Aug 2025)
 - Update to PHPOffice/PhpSpreadsheet 5.0
+- add support for href elements in submission_file
+- add support for citations/references
 
 ## CHanges in version 1.6.2.1 (Dec 2024)
 - Middle name removed from Readme as it is not supported by OJS
