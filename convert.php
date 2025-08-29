@@ -822,9 +822,11 @@ class ConvertExcel2PKPNativeXML {
 		for ($row = 2; $row <= $highestrow; $row++) {
 			$a = array();
 			for ($column = 1; $column <= $columncount; $column++) {
+				$cellCoordinate = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($column) . $row;
+				$cell = $sheet->getCell($cellCoordinate);
 				if (strpos($header[$column], "abstract") !== false) {
-					if ($sheet->getCellByColumnAndRow($column, $row)->getValue() instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
-						$value = $sheet->getCellByColumnAndRow($column, $row)->getValue();
+					if ($cell->getValue() instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+						$value = $cellf->getValue();
 						$elements = $value->getRichTextElements();
 						$cellData = "";
 						foreach ($elements as $element) {
@@ -856,11 +858,11 @@ class ConvertExcel2PKPNativeXML {
 						}
 						$a[$header[$column]] = $cellData;
 					} else {
-						$a[$header[$column]] = $sheet->getCellByColumnAndRow($column, $row)->getFormattedValue();
+						$a[$header[$column]] = $cell->getFormattedValue();
 					}
 				} else {
 					$key = $header[$column];
-					$a[$key] = $sheet->getCellByColumnAndRow($column, $row)->getFormattedValue();
+					$a[$key] = $cell->getFormattedValue();
 				}
 			}
 			$array[$row] = $a;

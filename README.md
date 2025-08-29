@@ -11,6 +11,8 @@ This tool requires PHP 8.2 or greater.
 
 Download and unzip the tsvConverter.
 
+Install PHP ext-zip: `apt-get install php-zip`
+
 Make sure you can run php from command line.
 
 Go to the tsvConverter folder and install or update dependencies via Composer (https://getcomposer.org/). The conversion tool uses https://github.com/PHPOffice/PhpSpreadsheet for reading sheets.
