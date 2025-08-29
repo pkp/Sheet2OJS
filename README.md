@@ -107,7 +107,7 @@ If an article has for example three authors, the excel file should include colum
 ### Files & Galleys
 | Field | Description |  Required| Multilingual Support|
 |----------|:--------:|:--------:|:--------:|
-| fileName1|  Name of the file, "article1.pdf" or url for an url to let OJS download a galley file. If the fileName is empty and a galleyDoi is provided the file will automatically be downloaded if it doesn't exists in the files folder.| x |   |
+| fileName1|  Name of the file, "article1.pdf" or url to let OJS download a galley file. If the fileName is empty and a galleyDoi is provided the file will automatically be downloaded if it doesn't exists in the files folder.| x |   |
 | fileGenre1|  Usually "Article Text"| x |   |
 | galleyLabel1|  Usually "PDF"| x | x |
 | galleyLocale1|  "en", "fi" etc. | x |   |
