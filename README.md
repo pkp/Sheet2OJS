@@ -1,13 +1,13 @@
-# Excel to OJS3 XML conversion tool
+# Excel to OJS XML conversion tool
 
-Version 1.6.2.1 supports the schema for OJS 3.3. (tested with OJS 3.3.0-18, Dec 2024)
+Version 1.8.0.0 supports the schema for OJS 3.5. (tested with OJS 3.5.0-3, Mar 2026)
 
 The tool was originally created for "in-house use" at the Federation of Finnish Learned Societies (https://tsv.fi). The current version consitutes a major revision and includes new features. Feel free to use and develop further.
 This repo replaces the original repo at [https://github.com/ajnyga/tsvConverter](https://github.com/ajnyga/tsvConverter) which is no longer maintained.
 
 ## Installation
 
-This tool requires PHP 8.2 or greater.
+This tool requires PHP 8.4 or greater.
 
 Download and unzip the tsvConverter.
 
@@ -18,6 +18,11 @@ Make sure you can run php from command line.
 Go to the tsvConverter folder and install or update dependencies via Composer (https://getcomposer.org/). The conversion tool uses https://github.com/PHPOffice/PhpSpreadsheet for reading sheets.
 
     composer install
+	composer run generate-schema-map
+
+	(Repeat `composer run generate-schema-map` whenever `native.xsd` or `pkp-native.xsd` changes.)
+
+	(Equivalent manual command: `php generate_schema_order_map.php`.)
 
 ## Usage 
 
@@ -44,7 +49,8 @@ Only validate by adding -v:
 1. Create an Excel file containing the article data. See the details below and the "exampleMinimal.xlsx" and "exampleAdvanced.xlsx" files. The metadata of each article is in one row. The order of the columns does not matter. 
 2. Move the Excel file to the same folder as the conversion script. Move the full text files to a folder, for example "exampleFiles", below the conversion script.
 3. Verify default values set in the file `config.ini`. In particular defaultLoacle (if not set via cli) and defaultUserGroupRef (see below).
-4. Run `php convert.php -x exampleMinimal.xlsx -f exampleFiles`
+4. Generate the schema order map: `composer run generate-schema-map` (only required if xsd files change)
+5. Run `php convert.php -x exampleMinimal.xlsx -f exampleFiles`
 
 Note that simple fields like, e.g. <description> can be added as columns to the excel sheet and will be converted to appropriate XML tags even if not listed in the tables below (see Advanced usage below).
 
@@ -135,12 +141,11 @@ es - Spanish
 
 Install `libxml2-util` if xmllint is not already available, e.g.: `apt-get install libxml2-utils`.
 
-Run `xmllint --noout --schema native.xsd <xml file>` to vaildate against OJS 3.3 native xsd.
+Run `xmllint --noout --schema native.xsd <xml file>` to vaildate against OJS 3.5 native xsd.
 
 ## Additional xsd and xml files
 
-The files `native.xsd`, `pkp-native.xsd` and `importexport.xsd` were taken from the OJS 3.3 repo for validation purposes.
-The file `OJS_3.3_Native_Sample.xml` was automatically generated from theses xsd files by means of the Oxygen XML Editor. It provides a template from which XML tag order and required locale attributes are deduced.
+The files `native.xsd`, `pkp-native.xsd` and `importexport.xsd` were taken from the OJS 3.5 repo for validation purposes.
 
 ## Advanced usage
 
@@ -151,12 +156,15 @@ E.g. to add an issue description simply add a column `issueDescription`, or in F
 ## Licence
 The conversion tool is distributed under the GNU GPL v3.
 
-## CHanges in version 1.6.3.0 (Aug 2025)
+## Changes in version 1.8.0.0 (Mar 2026)
+- Support for OJS 3.5
+
+## Changes in version 1.6.3.0 (Aug 2025)
 - Update to PHPOffice/PhpSpreadsheet 5.0
 - add support for href elements in submission_file
 - add support for citations/references
 
-## CHanges in version 1.6.2.1 (Dec 2024)
+## Changes in version 1.6.2.1 (Dec 2024)
 - Middle name removed from Readme as it is not supported by OJS
 
 ## Changes in version 1.6.2.0 (Nov 2024)

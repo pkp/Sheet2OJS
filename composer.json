@@ -1,5 +1,8 @@
 {
     "require": {
         "phpoffice/phpspreadsheet": "^5.0"
+    },
+    "scripts": {
+        "generate-schema-map": "php generate_schema_order_map.php"
     }
 }

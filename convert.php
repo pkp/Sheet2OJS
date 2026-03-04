@@ -24,7 +24,7 @@ class ConvertExcel2PKPNativeXML {
 
 	// defaults
 	private $defaultUploader = 'admin';
-	private $defaultAuthor = ['givenname' => 'Editorial Board'];
+	private $defaultAuthor = 'Editorial Board';
 	private $defaultLocale = 'en_US';
 	private $defaultUserGroupRef = [
 		'en_US' => 'Author',
@@ -79,19 +79,23 @@ class ConvertExcel2PKPNativeXML {
 			echo date('H:i:s'), " Data validation failed!", EOL;
 		}
 
-		// Get the required order of elements from sample xml file
-		$xsdFile = 'OJS_3.3_Native_Sample.xml';
-		$dom = new DOMDocument;
-		$dom->load($xsdFile);
-		$this->articleElementOrder = $this->getChildElementsOrder($dom, 'article');
-		$this->publicationElementOrder = $this->getChildElementsOrder($dom, 'pkppublication');
+		// Get element order from build-time generated schema map
+		$schemaOrderMapFile = __DIR__ . '/schema_order_map.php';
+		if (!is_file($schemaOrderMapFile)) {
+			echo date('H:i:s') . " ERROR: schema order map not found. Run: php generate_schema_order_map.php" . EOL;
+			die();
+		}
+
+		$schemaOrderMap = require $schemaOrderMapFile;
+		$this->articleElementOrder = $schemaOrderMap['articleElementOrder'];
+		$this->publicationElementOrder = $schemaOrderMap['publicationElementOrder'];
 		array_splice($this->publicationElementOrder, 1, 0, 'doi'); // allow 'doi' to come directly after 'id'
-		$this->authorElementOrder = $this->getChildElementsOrder($dom, 'author');
-		$this->submissionFileElementOrder = $this->getChildElementsOrder($dom, 'submission_file');
-		$this->issueElementOrder = $this->getChildElementsOrder($dom, 'issue');
-		$this->issueIdentificationElementOrder = $this->getChildElementsOrder($dom, 'issue_identification');
-		$this->coverImageElementOrder = $this->getChildElementsOrder($dom, 'cover');
-		$this->elementHasLocaleAttribute = $this->hasLocaleAttribute($dom);
+		$this->authorElementOrder = $schemaOrderMap['authorElementOrder'];
+		$this->submissionFileElementOrder = $schemaOrderMap['submissionFileElementOrder'];
+		$this->issueElementOrder = $schemaOrderMap['issueElementOrder'];
+		$this->issueIdentificationElementOrder = $schemaOrderMap['issueIdentificationElementOrder'];
+		$this->coverImageElementOrder = $schemaOrderMap['coverImageElementOrder'];
+		$this->elementHasLocaleAttribute = $schemaOrderMap['elementsWithLocale'];
 
 		// load data
 		echo date('H:i:s'), " Creating a new PHPExcel object", EOL;
@@ -451,12 +455,11 @@ class ConvertExcel2PKPNativeXML {
 					# Check if language has an alternative default locale
 					# If it does, use the locale in all fields
 					$articleLocale = $this->defaultLocale;
-					if (!empty($article['language'])) {
+					if (!empty($content['language'])) {
 						$articleLocale = $this->locales[trim($content['language'])];
 					}
 					unset($content['language']);
 
-					$publicationDOM->setAttribute('locale', $articleLocale);
 					$publicationDOM->setAttribute('version', "1");
 					$publicationDOM->setAttribute('status', "3");
 					$publicationDOM->setAttribute('access_status', "0");
@@ -559,6 +562,33 @@ class ConvertExcel2PKPNativeXML {
 
 						$authorDOM = $this->processData($authorDOM, $author);
 						$i++;
+					}
+					break;
+				case 'affiliation':
+					$affiliations = array_filter(array_map('trim', explode(';', (string)$content)), fn($value) => $value !== '');
+					foreach ($affiliations as $affiliationName) {
+						[$affiliationDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'affiliation');
+						$dom->appendChild($affiliationDOM);
+						$affiliationDOM = $this->processData($affiliationDOM, ['name' => $affiliationName]);
+					}
+					break;
+				case 'roraffiliation':
+					$rorAffiliations = array_filter(array_map('trim', explode(';', (string)$content)), fn($value) => $value !== '');
+					foreach ($rorAffiliations as $rorAffiliation) {
+						$parts = array_map('trim', explode('|', $rorAffiliation, 2));
+						$rorValue = $parts[0] ?? '';
+						$nameValue = $parts[1] ?? '';
+
+						if ($rorValue === '' || $nameValue === '') {
+							continue;
+						}
+
+						[$rorAffiliationDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'rorAffiliation');
+						$dom->appendChild($rorAffiliationDOM);
+						$rorAffiliationDOM = $this->processData($rorAffiliationDOM, [
+							'ror' => $rorValue,
+							'name' => $nameValue
+						]);
 					}
 					break;
 				case 'article_galley':
@@ -823,7 +853,7 @@ class ConvertExcel2PKPNativeXML {
 		// create element if not found
 		if (!isset($targetDOM) || $targetDOM->length == 0) {
 			[$targetDOM, $pos] = $this->createDOMElement($root, $tagname, $namespace);
-			if (!get_class($dom) === "DOMDocument") {
+			if (get_class($dom) !== "DOMDocument") {
 				$dom->lastChild->appendChild($targetDOM);
 			} else {
 				$dom->appendChild($targetDOM);
@@ -932,20 +962,18 @@ class ConvertExcel2PKPNativeXML {
 
 			for ($i = 1; $i <= 200; $i++) {
 
-				if (isset($article['file' . $i]) && $article['file' . $i] && !preg_match("@^https?://@", $article['file' . $i])) {
+				if (isset($article['fileName' . $i]) && $article['fileName' . $i] && !preg_match("@^https?://@", $article['fileName' . $i])) {
 
-					$fileCheck = $this->fullFilesFolderPath . $article['file' . $i];
+					$fileCheck = $this->fullFilesFolderPath . $article['fileName' . $i];
 
 					if (!is_file($fileCheck))
 						$errors .= date('H:i:s') . " ERROR: file " . $i . " missing " . $fileCheck . EOL;
 
-					$fileLabelColumn = 'fileLabel' . $i;
-					if (empty($fileLabelColumn)) {
-						$errors .= date('H:i:s') . " ERROR: fileLabel " . $i . " missing for article " . $articleRow . EOL;
+					if (empty($article['galleyLabel' . $i])) {
+						$errors .= date('H:i:s') . " ERROR: galleyLabel " . $i . " missing for article " . $articleRow . EOL;
 					}
-					$fileLocaleColumns = 'fileLocale' . $i;
-					if (empty($fileLocaleColumns)) {
-						$errors .= date('H:i:s') . " ERROR: fileLocale " . $i . "  missingfor article " . $articleRow . EOL;
+					if (empty($article['galleyLocale' . $i])) {
+						$errors .= date('H:i:s') . " ERROR: galleyLocale " . $i . "  missingfor article " . $articleRow . EOL;
 					}
 				} else {
 					break;
