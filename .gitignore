@@ -7,6 +7,8 @@
 !exampleAdvanced.xlsx
 !exampleMinimal.xlsx
 !convert.php
+!schema_order_map.php
+!generate_schema_order_map.php
 !LICENSE
 !exampleFiles/*
 !native.xsd
