@@ -332,6 +332,7 @@ class ConvertExcel2PKPNativeXML {
 					$issueDOM->appendChild($sectionsDOM);
 
 					[$sectionDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'section');
+					$sectionDOM->setAttribute('abstract_word_count', 0);
 					$sectionsDOM->appendChild($sectionDOM);
 
 					$sectionDOM = $this->processData($sectionDOM, $data['sections']['section']);	
@@ -958,6 +959,70 @@ class ConvertExcel2PKPNativeXML {
 
 			if (empty($article['sectionAbbrev'])) {
 				$errors .= date('H:i:s') . " ERROR: section abbreviation missing for the given default locale for article " . $articleRow . EOL;
+			}
+
+			$articleLanguage = strtolower(trim($article['language'] ?? ''));
+			$localePrefix = '';
+			foreach ($this->locales as $lang => $localeCode) {
+				if (strtolower($lang) === $articleLanguage || strtolower($localeCode) === $articleLanguage) {
+					$localePrefix = $lang;
+					break;
+				}
+			}
+
+			$defaultLocalePrefix = '';
+			foreach ($this->locales as $lang => $localeCode) {
+				if (strtolower($localeCode) === strtolower($this->defaultLocale) || strtolower($lang) === strtolower($this->defaultLocale)) {
+					$defaultLocalePrefix = $lang;
+					break;
+				}
+			}
+
+			$requiredLocalePrefix = $localePrefix !== '' ? $localePrefix : $defaultLocalePrefix;
+
+			for ($authorIndex = 1; $authorIndex <= 200; $authorIndex++) {
+				$authorGivenName = trim((string)($article['authorGivenname' . $authorIndex] ?? ''));
+				$authorFamilyName = trim((string)($article['authorFamilyname' . $authorIndex] ?? ''));
+				$authorEmail = trim((string)($article['authorEmail' . $authorIndex] ?? ''));
+
+				if ($authorGivenName === '' && $authorFamilyName === '' && $authorEmail === '') {
+					break;
+				}
+
+				$hasGenericAffiliation = trim((string)($article['authorAffiliation' . $authorIndex] ?? '')) !== ''
+					|| trim((string)($article['authorRorAffiliation' . $authorIndex] ?? '')) !== '';
+
+				$hasAnyAffiliationData = $hasGenericAffiliation;
+				if (!$hasAnyAffiliationData) {
+					foreach ($article as $fieldName => $fieldValue) {
+						if (trim((string)$fieldValue) === '') {
+							continue;
+						}
+
+						if (preg_match('/^[a-z]{2}:(authorAffiliation|authorRorAffiliation)' . $authorIndex . '$/i', $fieldName)) {
+							$hasAnyAffiliationData = true;
+							break;
+						}
+					}
+				}
+
+				$hasLocalizedAffiliation = false;
+				if ($requiredLocalePrefix !== '') {
+					$localizedAffiliationKey = $requiredLocalePrefix . ':authorAffiliation' . $authorIndex;
+					$localizedRorAffiliationKey = $requiredLocalePrefix . ':authorRorAffiliation' . $authorIndex;
+					$hasLocalizedAffiliation = trim((string)($article[$localizedAffiliationKey] ?? '')) !== ''
+						|| trim((string)($article[$localizedRorAffiliationKey] ?? '')) !== '';
+				}
+
+				$allowGenericForSubmissionLocale = $requiredLocalePrefix === '' || $requiredLocalePrefix === $defaultLocalePrefix;
+				$hasAffiliationForSubmissionLocale = $allowGenericForSubmissionLocale
+					? ($hasGenericAffiliation || $hasLocalizedAffiliation)
+					: $hasLocalizedAffiliation;
+
+				if ($hasAnyAffiliationData && !$hasAffiliationForSubmissionLocale) {
+					$languageLabel = $requiredLocalePrefix !== '' ? $requiredLocalePrefix : ($articleLanguage !== '' ? $articleLanguage : $this->defaultLocale);
+					$errors .= date('H:i:s') . " ERROR: author " . $authorIndex . " affiliation is provided but missing for submission language " . $languageLabel . " for article " . $articleRow . EOL;
+				}
 			}
 
 			for ($i = 1; $i <= 200; $i++) {

@@ -106,9 +106,12 @@ If an article has for example three authors, the excel file should include colum
 | authorFamilyname1|  Family name |   | x |
 | authorEmail1|  Email |  |   |
 | authorAffiliation1|  Affiliation |   | x |
+| authorRorAffiliation1|  ROR affiliation as URI, e.g. "https://ror.org/03yrm5c26" |   | x |
 | authorCountry1|  "FI", "SE", "DK", "CA", "US" |   |   |
 | authorOrcid1|  Orcid ID, should include "https://". Note that adding Orcid ID's this way is not recommended by Orcid. |   |   |
 | authorBiography1|  Biography |   | x |
+
+Note on affiliations: Affiliation is optional. If you provide affiliation data for an author, OJS import expects it to be available in the submission language. If the article `language` is non-default (for example `fi`), provide `fi:authorAffiliation1` (or `fi:authorRorAffiliation1`) instead of relying only on unqualified `authorAffiliation1`.
 
 ### Files & Galleys
 | Field | Description |  Required| Multilingual Support|
@@ -125,7 +128,6 @@ The converter supports three different ways of handling locales:
 - Alternative 1: If all your data is in one language, you can just give the defaultLocale value in the converter settings.
 - Alternative 2: If some of your articles are for example in English and some in Finnish, you can add an additional column named "language" and give the article locale in that column. See the example xls-file. All the article medata will be saved using the locale given in the language field. For example *title* can contain both English and Finnish titles as long as the language column matches the language used in the field.
 - Alternative 3: If your articles are all in one language, but you also have some metadata in other languages, for example an abstract in another language, you can give an additional abstract field in a column named locale:abstract (for example en:abstract)
-
 
 fi - Finnish
 en - English
