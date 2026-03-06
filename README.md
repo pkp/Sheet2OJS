@@ -1,21 +1,21 @@
 # Excel to OJS XML conversion tool
 
-Version 1.8.0.0 supports the schema for OJS 3.5. (tested with OJS 3.5.0-3, Mar 2026)
+Version 1.8.0.0 supports OJS Native XML Schema for OJS 3.5. (tested with OJS 3.5.0-3, Mar 2026)
 
 The tool was originally created for "in-house use" at the Federation of Finnish Learned Societies (https://tsv.fi). The current version consitutes a major revision and includes new features. Feel free to use and develop further.
 This repo replaces the original repo at [https://github.com/ajnyga/tsvConverter](https://github.com/ajnyga/tsvConverter) which is no longer maintained.
 
 ## Installation
 
-This tool requires PHP 8.4 or greater.
+This tool requires PHP 8.3 or greater.
 
-Download and unzip the tsvConverter.
+Download and unzip the Sheet2OJS converter.
 
-Install PHP ext-zip: `apt-get install php-zip`
+Install PHP extensions: `apt install php-zip php-dom php-gd`
 
 Make sure you can run php from command line.
 
-Go to the tsvConverter folder and install or update dependencies via Composer (https://getcomposer.org/). The conversion tool uses https://github.com/PHPOffice/PhpSpreadsheet for reading sheets.
+Go to the Sheet2OJS folder and install or update dependencies via Composer (https://getcomposer.org/) and update schema-order-map.php in case you provided updated OJS xsd schema files. The conversion tool uses https://github.com/PHPOffice/PhpSpreadsheet for reading sheets.
 
     composer install
 	composer run generate-schema-map
@@ -33,7 +33,7 @@ Usage:
 	php convert.php [options] -x <xlsx filename> -f <files folder name>
 
 	Options:
-	[--defaultLocale | -l] <4-digit locale code>
+	[--defaultLocale | -l] <2-digit or 4-digit locale code, see OJS locale folder>
 	[--onlyValidate | -v]
 
 Convert:

@@ -25,11 +25,11 @@ class ConvertExcel2PKPNativeXML {
 	// defaults
 	private $defaultUploader = 'admin';
 	private $defaultAuthor = 'Editorial Board';
-	private $defaultLocale = 'en_US';
+	private $defaultLocale = 'en';
 	private $defaultUserGroupRef = [
-		'en_US' => 'Author',
-		'de_DE' => 'Autor/in',
-		'sv_SE' => 'F&#xF6;rfattare'
+		'en' => 'Author',
+		'de' => 'Autor/in',
+		'sv' => 'F&#xF6;rfattare'
 	];
 	private $primaryContactId;
 
@@ -39,15 +39,15 @@ class ConvertExcel2PKPNativeXML {
 	private $articleKeys;
 	private $authorKeys;
 	private $locales = [
-		'en' => 'en_US',
-		'fi' => 'fi_FI',
-		'sv' => 'sv_SE',
-		'de' => 'de_DE',
-		'ru' => 'ru_RU',
-		'fr' => 'fr_FR',
+		'en' => 'en',
+		'fi' => 'fi',
+		'sv' => 'sv',
+		'de' => 'de',
+		'ru' => 'ru',
+		'fr' => 'fr',
 		'no' => 'nb_NO',
-		'da' => 'da_DK',
-		'es' => 'es_ES',
+		'da' => 'da',
+		'es' => 'es',
 	];	
 
 	// xml generation
@@ -541,28 +541,32 @@ class ConvertExcel2PKPNativeXML {
 				case 'authors':
 					[$authorsDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'authors', 'http://pkp.sfu.ca');
 					$dom->appendChild($authorsDOM);
+					$this->primaryContactId = null;
 
-					$i = 0;
+					$requestedPrimaryContactId = isset($data['primaryContactId']) ? (string)$data['primaryContactId'] : null;
+					unset($data['primaryContactId']);
+
 					foreach ($content as $authorId => $author) {
 							
 						[$authorDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'author');
 						$authorsDOM->appendChild($authorDOM);
+						$authorDomId = $pos + 1;
 				
 						$authorDOM->setAttribute('include_in_browse', 'true');
 						$authorDOM->setAttribute('user_group_ref', $this->defaultUserGroupRef[$this->defaultLocale]);
 						$authorDOM->setAttribute('seq', $authorId);
-						$authorDOM->setAttribute('id', $pos + 1 + $i);
+						$authorDOM->setAttribute('id', $authorDomId);
 
-						$this->primaryContactId = $pos + 1;
-						if (isset($data['primaryContactId'])) {
-							if ($data['primaryContactId'] == $authorId) {
-								$this->primaryContactId = $pos + 1 + $i;
-							}
-							unset($data['primaryContactId']);
+						if (!isset($this->primaryContactId)) {
+							// Default to the first author when no explicit primary contact is provided.
+							$this->primaryContactId = $authorDomId;
+						}
+
+						if ($requestedPrimaryContactId !== null && $requestedPrimaryContactId === (string)$authorId) {
+							$this->primaryContactId = $authorDomId;
 						}
 
 						$authorDOM = $this->processData($authorDOM, $author);
-						$i++;
 					}
 					break;
 				case 'affiliation':
