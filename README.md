@@ -48,7 +48,7 @@ Only validate by adding -v:
 ### Step by step instructions
 1. Create an Excel file containing the article data. See the details below and the "exampleMinimal.xlsx" and "exampleAdvanced.xlsx" files. The metadata of each article is in one row. The order of the columns does not matter. 
 2. Move the Excel file to the same folder as the conversion script. Move the full text files to a folder, for example "exampleFiles", below the conversion script.
-3. Verify default values set in the file `config.ini`. In particular defaultLoacle (if not set via cli) and defaultUserGroupRef (see below).
+3. Rename `config.TEMPLATE.ini` to `config.ini` and verify default values set in the file. In particular defaultLoacle (if not set via cli) and defaultUserGroupRef (see below).
 4. Generate the schema order map: `composer run generate-schema-map` (only required if xsd files change)
 5. Run `php convert.php -x exampleMinimal.xlsx -f exampleFiles`
 
