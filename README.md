@@ -117,7 +117,7 @@ Note on affiliations: Affiliation is optional. If you provide affiliation data f
 | Field | Description |  Required| Multilingual Support|
 |----------|:--------:|:--------:|:--------:|
 | fileName1|  Name of the file, "article1.pdf" or url to let OJS download a galley file. If the fileName is empty and a galleyDoi is provided the file will automatically be downloaded if it doesn't exists in the files folder.| x |   |
-| fileGenre1|  Usually "Article Text"| x |   |
+| fileGenre1|  Usually "Article Text"| x | Make sure the OJS installtion you import to has an article component with the name (might be multilingual) provided here. |
 | galleyLabel1|  Usually "PDF"| x | x |
 | galleyLocale1|  "en", "fi" etc. | x |   |
 | galleyDoi1| DOI directly poiting to the galley file | ||

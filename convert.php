@@ -201,7 +201,7 @@ class ConvertExcel2PKPNativeXML {
 
 			// put all together			
 			$issueData[$articleIssueHash]['issues'] = $issueIdentification;
-			$issueData[$articleIssueHash]['sections']['section'] = $sectionIdentification;
+			$issueData[$articleIssueHash]['sections'][$sectionIdentification['sectionAbbrev']] = $sectionIdentification;
 			$issueData[$articleIssueHash]['articles'][$id] = $article;
 			$issueData[$articleIssueHash]['articles'][$id]['sectionAbbrev'] = $sectionIdentification['sectionAbbrev'];
 		}
@@ -331,11 +331,12 @@ class ConvertExcel2PKPNativeXML {
 					[$sectionsDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'sections');
 					$issueDOM->appendChild($sectionsDOM);
 
-					[$sectionDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'section');
-					$sectionDOM->setAttribute('abstract_word_count', 0);
-					$sectionsDOM->appendChild($sectionDOM);
-
-					$sectionDOM = $this->processData($sectionDOM, $data['sections']['section']);	
+					foreach ($data['sections'] as $sectionAbbrev => $sectionData) {
+						[$sectionDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'section');
+						$sectionDOM->setAttribute('abstract_word_count', 0);
+						$sectionDOM = $this->processData($sectionDOM, $sectionData);	
+						$sectionsDOM->appendChild($sectionDOM);
+					}
 					break;
 				case 'issues':
 					[$issueDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'issue', 'http://pkp.sfu.ca');
@@ -499,23 +500,66 @@ class ConvertExcel2PKPNativeXML {
 						}
 						unset($content[$key]);
 					}
-					foreach ($content['authors'] as $id => $authorData) {
-						// create required fields if not provided
-						$missingKeys = array_diff(
-							['givenname','familyname','affiliation','country','email'],
-							array_keys($authorData)
-						);
-						// set missing values
-						foreach ($missingKeys as $key) {
-							if ($key == 'givenname') {
-								$authorData[$key] = $this->defaultAuthor;
-							} else {
-								$authorData[$key] = "";
+				
+				// Extract localized author affiliations (e.g., en:authorAffiliation1)
+				$localizedAuthorAffiliations = [];
+				foreach ($content as $key => $value) {
+					if (preg_match('/^[a-z]{2}:author(Affiliation|RorAffiliation)(\d+)$/', $key, $matches)) {
+						$affiliationType = $matches[1]; // 'Affiliation' or 'RorAffiliation'
+						$authorId = $matches[2];
+						[$locale, $fieldName] = $this->splitLocaleTagName($key);
+						if (strlen($value) > 0) {
+							if ($affiliationType === 'Affiliation') {
+								if (!isset($localizedAuthorAffiliations[$authorId]['affiliation'])) {
+									$localizedAuthorAffiliations[$authorId]['affiliation'] = [];
+								}
+								$localizedAuthorAffiliations[$authorId]['affiliation'][$locale] = $value;
 							}
 						}
-						// sort elements according to required field order
-						$content['authors'][$id] = $this->sortArrayElementsByKey($authorData, $this->authorElementOrder);
+						unset($content[$key]);
 					}
+				}
+				
+				foreach ($content['authors'] as $id => $authorData) {
+					// Merge localized affiliations if present
+					if (isset($localizedAuthorAffiliations[$id]['affiliation'])) {
+						$authorData['affiliation'] = $localizedAuthorAffiliations[$id]['affiliation'];
+					} else {
+						// Localized author affiliation columns can be extracted as locale-prefixed keys (e.g., en:affiliation).
+						// Fold them back into a single compound affiliation structure.
+						$localizedAffiliationValues = [];
+						foreach ($authorData as $field => $fieldValue) {
+							if (preg_match('/^([a-z]{2}):affiliation$/', $field, $matches)) {
+								$localePrefix = strtolower($matches[1]);
+								$locale = $this->locales[$localePrefix] ?? $this->defaultLocale;
+								if (strlen((string)$fieldValue) > 0) {
+									$localizedAffiliationValues[$locale] = $fieldValue;
+								}
+								unset($authorData[$field]);
+							}
+						}
+
+						if (!empty($localizedAffiliationValues)) {
+							$authorData['affiliation'] = $localizedAffiliationValues;
+						}
+					}
+					
+					// create required fields if not provided
+					$missingKeys = array_diff(
+						['givenname','familyname','affiliation','country','email'],
+						array_keys($authorData)
+					);
+					// set missing values
+					foreach ($missingKeys as $key) {
+						if ($key == 'givenname') {
+							$authorData[$key] = $this->defaultAuthor;
+						} else {
+							$authorData[$key] = "";
+						}
+					}
+					// sort elements according to required field order
+					$content['authors'][$id] = $this->sortArrayElementsByKey($authorData, $this->authorElementOrder);
+				}
 
 					// get galley data 
 					$galleyKeys = $this->getUniqueKeys([$content], 'galley');
@@ -570,11 +614,18 @@ class ConvertExcel2PKPNativeXML {
 					}
 					break;
 				case 'affiliation':
-					$affiliations = array_filter(array_map('trim', explode(';', (string)$content)), fn($value) => $value !== '');
-					foreach ($affiliations as $affiliationName) {
-						[$affiliationDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'affiliation');
-						$dom->appendChild($affiliationDOM);
-						$affiliationDOM = $this->processData($affiliationDOM, ['name' => $affiliationName]);
+					// Check if this is a compound affiliation structure (array of locales) or simple string
+					if (is_array($content)) {
+						// Compound affiliation with multiple locales
+						$this->processCompoundAffiliation($dom, $content);
+					} else {
+						// Simple affiliation (backward compatibility)
+						$affiliations = array_filter(array_map('trim', explode(';', (string)$content)), fn($value) => $value !== '');
+						foreach ($affiliations as $affiliationName) {
+							[$affiliationDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'affiliation');
+							$dom->appendChild($affiliationDOM);
+							$affiliationDOM = $this->processData($affiliationDOM, ['name' => $affiliationName]);
+						}
 					}
 					break;
 				case 'roraffiliation':
@@ -651,10 +702,12 @@ class ConvertExcel2PKPNativeXML {
 						
 						# we expect a ;-separated list of keywords, disciplines, subjects or citations
 						foreach (explode(';', $content) as $element) {
-							$elementDOM = $dom->ownerDocument->createElement(rtrim($xmlTagName, "s"), $element);
+							[$elementDOM, $pos] = $this->createDOMElement($dom->ownerDocument, rtrim($xmlTagName, "s"));
+							$nameDOM = $dom->ownerDocument->createElement('name', $element);
+							$elementDOM->appendChild($nameDOM);
 							$elementsDOM->appendChild($elementDOM);
 						}
-					}					
+					}
 					break;
 				case 'submission_file':
 					foreach ($content as $id => $submissionFileData) {
@@ -751,17 +804,20 @@ class ConvertExcel2PKPNativeXML {
 					if (strlen($tagname) > 0) {
 						switch ($tagname) {
 							case 'primaryContactId':
+							case 'sectionSeq':
 								// fields that hold attributes don't create a tag
 								break;
 							case in_array($tagname, $this->elementHasLocaleAttribute):
 							case (strpos($tagname, ':') === 2):
 								// elements with locale attribute
 								[$locale, $tagname] = $this->splitLocaleTagName($tagname);
+
 								$element = $dom->ownerDocument->createElement($tagname);
 								$element->appendChild($dom->ownerDocument->createTextNode($content));
 								if ($locale) {
 									$element->setAttribute('locale', $locale);
 								}
+								
 								$dom->appendChild($element);
 								break;
 							case 'copyrightYear':
@@ -1150,6 +1206,47 @@ class ConvertExcel2PKPNativeXML {
 		$normalizedPath = preg_replace('~/+~', '/', $normalizedPath);
 		
 		return $normalizedPath;
+	}
+
+	/**
+	 * Process compound affiliation structures with multiple locales
+	 * Creates a single <affiliation> element with multiple <name> children, each with a locale attribute
+	 * 
+	 * @param DOMElement $dom The parent DOM element to append affiliation to
+	 * @param array $content Associative array mapping locale codes to affiliation strings
+	 *                       Example: ['en' => 'University A; University B', 'de' => 'Universität A']
+	 */
+	function processCompoundAffiliation($dom, $content) {
+		// Group all affiliation names by locale
+		$affiliationsByLocale = [];
+		
+		foreach ($content as $locale => $affiliationText) {
+			if (is_string($affiliationText) && strlen($affiliationText) > 0) {
+				// Split by semicolon to support multiple affiliations per locale
+				$affiliations = array_filter(
+					array_map('trim', explode(';', $affiliationText)),
+					fn($value) => $value !== ''
+				);
+				if (!empty($affiliations)) {
+					$affiliationsByLocale[$locale] = $affiliations;
+				}
+			}
+		}
+		
+		// Create a single affiliation element with multiple name children
+		if (!empty($affiliationsByLocale)) {
+			[$affiliationDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'affiliation');
+			$dom->appendChild($affiliationDOM);
+			
+			foreach ($affiliationsByLocale as $locale => $affiliationNames) {
+				foreach ($affiliationNames as $affiliationName) {
+					$nameElement = $dom->ownerDocument->createElement('name');
+					$nameElement->appendChild($dom->ownerDocument->createTextNode($affiliationName));
+					$nameElement->setAttribute('locale', $locale);
+					$affiliationDOM->appendChild($nameElement);
+				}
+			}
+		}
 	}
 
 }
