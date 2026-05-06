@@ -30,31 +30,39 @@ Before importing the created data to your production server, **you should try to
 
 Usage:
 
-	php convert.php [options] -x <xlsx filename> -f <files folder name>
+	Usage: php convert.php [-c <config.ini file>] [-x <xslx file>] [-f <files folder>] [-v] [-l <default locale>]
 
 	Options:
+	[-c <config.ini file>] Use parameters from given config file
+	[-x <xslx file>] Excel file with metadata to convert
+	[-f <files folder>] Path to folder containing files
+	[-h] Show help
 	[--defaultLocale | -l] <2-digit or 4-digit locale code, see OJS locale folder>
 	[--onlyValidate | -v]
 
 Convert:
 
-	php convert.php -x sheetFilename -f filesFolderName
+	php convert.php -x <sheetFilename> -f <filesFolderName>
+
+or
+
+	php convert.php -c <myjournal.comfig.ini>
 
 Only validate by adding -v:
 
-	php convert.php -x sheetFilename -f filesFolderName -v
+	php convert.php -x <sheetFilename> -f <filesFolderName> -v
 
 
 ### Step by step instructions
 1. Create an Excel file containing the article data. See the details below and the "exampleMinimal.xlsx" and "exampleAdvanced.xlsx" files. The metadata of each article is in one row. The order of the columns does not matter. 
-2. Move the Excel file to the same folder as the conversion script. Move the full text files to a folder, for example "exampleFiles", below the conversion script.
-3. Rename `config.TEMPLATE.ini` to `config.ini` and verify default values set in the file. In particular defaultLoacle (if not set via cli) and defaultUserGroupRef (see below).
+2. Provide the required files in a subfolder.
+3. Create a copy of `config.TEMPLATE.ini`, update parameters according to your environment and your journals requirements, and verify default values set in the file. In particular defaultLoacle (if not set via cli) and defaultUserGroupRef (see below).
 4. Generate the schema order map: `composer run generate-schema-map` (only required if xsd files change)
-5. Run `php convert.php -x exampleMinimal.xlsx -f exampleFiles`
+5. Run `php convert.php -c <your config file>`
 
 Note that simple fields like, e.g. <description> can be added as columns to the excel sheet and will be converted to appropriate XML tags even if not listed in the tables below (see Advanced usage below).
 
-The `defaultUserGroupRef` must be set in the file `config.ini` and needs to be compatible with the one used in your system (in the primary locale). Note that some journals (even with English as their primary language) may have a proprietary name for this group.
+The `defaultUserGroupRef` must be set in the file config file and needs to be compatible with the one used in your system (in the primary locale). Note that some journals (even with English as their primary language) may have a proprietary name for this group.
 
 For larger imports it might be necessary to temporarily increase your OJS servers “post_max_size” and “upload_max_filesize” in your php.ini.
 
