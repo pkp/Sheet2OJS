@@ -782,12 +782,19 @@ class ConvertExcel2PKPNativeXML {
 						$submissionFileData = $this->sortArrayElementsByKey($submissionFileData, $this->submissionFileElementOrder);
 	
 						# If href is provided, it will be handled below
+						if ($this->ignoreMissingFiles) {
+							$submissionFileData['name'] = $this->dummySubmissionFileName;
+							unset($submissionFileData['href']);
+						}
 						$submissionFileDataNoHref = $submissionFileData;
 						unset($submissionFileDataNoHref['href']);
 						$subFileDOM = $this->processData($subFileDOM, $submissionFileDataNoHref);
 						
 						# create file element
 						$filePath = $this->normalizePath($this->fullFilesFolderPath . $submissionFileData['name']);
+						if ($this->ignoreMissingFiles) {
+							$filePath = $this->dummySubmissionFilePath;
+						}
 						if (is_file($filePath) || array_key_exists('href', $submissionFileData)) {
 							$this->logInfo("Adding file " . $filePath);
 							$file = $dom->ownerDocument->createElement('file');
@@ -796,7 +803,7 @@ class ConvertExcel2PKPNativeXML {
 							$file->setAttribute('id', $pos+1);				
 							$file->setAttribute('extension', pathinfo($submissionFileData['name'], PATHINFO_EXTENSION));
 
-							if (array_key_exists('href', $submissionFileData)) {
+							if (!$this->ignoreMissingFiles && array_key_exists('href', $submissionFileData)) {
 								# link to external file
 								$file = $this->processData($file, ['href' => $submissionFileData['href']]);
 							} else {
