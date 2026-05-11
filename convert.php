@@ -65,13 +65,13 @@ class ConvertExcel2PKPNativeXML {
 
 		// pasre cli
 		$rest_index = null;
-		$shortOpts = "hvc:l:x:f:";
-		$longOpts = ['defaultLocale:', 'validate'];
+		$shortOpts = "hvic:l:x:f:";
+		$longOpts = ['defaultLocale:', 'validate','ignoreMissingFiles'];
 		$this->opts = getopt($shortOpts, $longOpts, $rest_index);
 		$this->posArgs = array_slice($argv, $rest_index);
 
 		if (isset($this->opts['h']) || count($this->opts) == 0) {
-			echo "Usage: php convert.php [-c <config.ini file>] [-x <xslx file>] [-f <files folder>] [-v] [-l <default locale>] [-h]", EOL;
+			echo "Usage: php convert.php [-c <config.ini file>] [-x <xslx file>] [-f <files folder>] [-v] [-l <default locale>] [-i] [-h]", EOL;
 			exit(0);
 		}
 
@@ -122,7 +122,7 @@ class ConvertExcel2PKPNativeXML {
 		* -----------
 		*/
 
-		echo date('H:i:s'), "Validating metadata from Excel sheet", EOL;
+		echo date('H:i:s'), " Validating metadata from Excel sheet", EOL;
 
 		$errors = $this->validateArticles($articles);
 		if ($errors != "") {
@@ -1055,7 +1055,11 @@ class ConvertExcel2PKPNativeXML {
 
 			$requiredLocalePrefix = $localePrefix !== '' ? $localePrefix : $defaultLocalePrefix;
 
-			for ($authorIndex = 1; $authorIndex <= 200; $authorIndex++) {
+			// prepare all author-related fields
+			$authorKeys = $this->getUniqueKeys([$article], 'author');
+			foreach ($authorKeys as $authorKey) {
+				$authorIndex = (int) filter_var($authorKey, FILTER_SANITIZE_NUMBER_INT);
+
 				$authorGivenName = trim((string)($article['authorGivenname' . $authorIndex] ?? ''));
 				$authorFamilyName = trim((string)($article['authorFamilyname' . $authorIndex] ?? ''));
 				$authorEmail = trim((string)($article['authorEmail' . $authorIndex] ?? ''));
@@ -1100,7 +1104,10 @@ class ConvertExcel2PKPNativeXML {
 				}
 			}
 
-			for ($i = 1; $i <= 200; $i++) {
+			// get all array keys starting with "fileName" to check if the referenced files exist and if galley label and locale are provided
+			$fileKeys = $this->getUniqueKeys([$article], 'fileName');
+			foreach ($fileKeys as $fileKey) {
+				$i = (int) filter_var($fileKey, FILTER_SANITIZE_NUMBER_INT);
 
 				if (isset($article['fileName' . $i]) && $article['fileName' . $i] && !preg_match("@^https?://@", $article['fileName' . $i])) {
 

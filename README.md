@@ -39,6 +39,7 @@ Usage:
 	[-h] Show help
 	[--defaultLocale | -l] <2-digit or 4-digit locale code, see OJS locale folder>
 	[--onlyValidate | -v]
+	[--ignoreMissingFiles | -i] This ignores file validation errors and uses a dummy pdf file instead (use for testing)
 
 Convert:
 
