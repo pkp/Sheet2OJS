@@ -415,7 +415,7 @@ class ConvertExcel2PKPNativeXML {
 					$xmlTagName = strtolower(str_replace('section', '', $tagname));
 					$dom = $this->processData($dom, [$xmlTagName => $content]);
 					$dom->setAttribute('ref', $data['sectionAbbrev']);
-					$dom->setAttribute('seq', isset($data['sectionSeq']) ? $data['sectionSeq'] : "0");
+					$dom->setAttribute('seq', (int)(isset($data['sectionSeq']) ? $data['sectionSeq'] : "0"));
 					break;
 				case 'datePublished':
 					[$issueDOM, $pos] = $this->getOrCreateDOMElement($dom->ownerDocument, 'issue');
@@ -515,7 +515,7 @@ class ConvertExcel2PKPNativeXML {
 					$publicationDOM->setAttribute('section_ref', $content['sectionAbbrev']);
 					unset($content['sectionAbbrev']);
 					if (isset($content['articleSeq'])) {
-						$publicationDOM->setAttribute('seq', $content['articleSeq']);
+						$publicationDOM->setAttribute('seq', (int)$content['articleSeq']);
 						unset($content['articleSeq']);
 					}
 
@@ -637,7 +637,7 @@ class ConvertExcel2PKPNativeXML {
 				
 						$authorDOM->setAttribute('include_in_browse', 'true');
 						$authorDOM->setAttribute('user_group_ref', $this->defaultUserGroupRef[$this->defaultLocale]);
-						$authorDOM->setAttribute('seq', $authorId);
+						$authorDOM->setAttribute('seq', (int)$authorId);
 						$authorDOM->setAttribute('id', $authorDomId);
 
 						if (!isset($this->primaryContactId)) {
@@ -699,7 +699,7 @@ class ConvertExcel2PKPNativeXML {
 						}
 						// When importing OJS seems to ignore the <article_galley> locale attribute but set the galley locale on the basis of the locale of the <name> tag
 						$articleGalleysDOM = $this->processData($articleGalleysDOM, [$galleyData['locale'].':name' => $galleyData['label']]);
-						$articleGalleysDOM = $this->processData($articleGalleysDOM, ['seq' => $id-1]);
+						$articleGalleysDOM = $this->processData($articleGalleysDOM, ['seq' => (int)($id-1)]);
 
 						[$fileRef, $pos] = $this->createDOMElement($dom->ownerDocument, 'submission_file_ref'); # Todo: This element should be replace in case of remote galleys
 						$articleGalleysDOM->appendChild($fileRef);
@@ -725,25 +725,44 @@ class ConvertExcel2PKPNativeXML {
 					$id->setAttribute('advice', 'update');
 					break;
 				case str_ends_with($tagname, 'keywords'):
+				case str_ends_with($tagname, 'keyword'):
 				case str_ends_with($tagname, 'disciplines'):
+				case str_ends_with($tagname, 'discipline'):
 				case str_ends_with($tagname, 'subjects'):
+				case str_ends_with($tagname, 'subject'):
 				case str_ends_with($tagname, 'references'):
 				case str_ends_with($tagname, 'citations'):
+				case str_ends_with($tagname, 'citation'):
 					if (str_ends_with($tagname, 'references')) {
 						$tagname = str_replace('references', 'citations', $tagname); // citations is the correct tag name according to native.xsd
+					} elseif (str_ends_with($tagname, 'discipline')) {
+						$tagname = preg_replace('/discipline$/', 'disciplines', $tagname);
+					} elseif (str_ends_with($tagname, 'subject')) {
+						$tagname = preg_replace('/subject$/', 'subjects', $tagname);
+					} elseif (str_ends_with($tagname, 'keyword')) {
+						$tagname = preg_replace('/keyword$/', 'keywords', $tagname);
+					} elseif (str_ends_with($tagname, 'citation')) {
+						$tagname = preg_replace('/citation$/', 'citations', $tagname);
 					}
-					if (strlen($content) > 0) {
+					if (strlen((string)$content) > 0) {
 						[$locale, $xmlTagName] = $this->splitLocaleTagName($tagname);
 						[$elementsDOM, $pos] = $this->createDOMElement($dom->ownerDocument, $xmlTagName);
 						$dom->appendChild($elementsDOM);
 	
 						$elementsDOM->setAttribute('locale', $locale);
 						
-						# we expect a ;-separated list of keywords, disciplines, subjects or citations
-						foreach (explode(';', $content) as $element) {
-							[$elementDOM, $pos] = $this->createDOMElement($dom->ownerDocument, rtrim($xmlTagName, "s"));
-							$nameDOM = $dom->ownerDocument->createElement('name', $element);
-							$elementDOM->appendChild($nameDOM);
+						// Schema-specific child tags:
+						// - keywords/disciplines/subjects require <keyword><name>...</name></keyword>
+						// - citations require <citation>...</citation>
+						foreach (array_filter(array_map('trim', explode(';', (string)$content)), fn($value) => $value !== '') as $element) {
+							if ($xmlTagName === 'citations') {
+								[$elementDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'citation');
+								$elementDOM->appendChild($dom->ownerDocument->createTextNode($element));
+							} else {
+								[$elementDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'keyword');
+								$nameDOM = $dom->ownerDocument->createElement('name', $element);
+								$elementDOM->appendChild($nameDOM);
+							}
 							$elementsDOM->appendChild($elementDOM);
 						}
 					}
