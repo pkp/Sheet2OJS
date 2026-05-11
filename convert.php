@@ -82,7 +82,7 @@ class ConvertExcel2PKPNativeXML {
 		if (isset($this->opts['c'])) {
 			$configFile = $this->opts['c'];
 			if (!is_file($configFile)) {
-				echo date('H:i:s') . " ERROR: Config file does not exist" . EOL;
+				$this->logError("Config file does not exist");
 				die();
 			}
 			// Parse the INI configuration file
@@ -92,13 +92,13 @@ class ConvertExcel2PKPNativeXML {
 		}
 
 		if (!$this->validateInput()) {
-			echo date('H:i:s'), " Data validation failed!", EOL;
+			$this->logError("Data validation failed!");
 		}
 
 		// Get element order from build-time generated schema map
 		$schemaOrderMapFile = __DIR__ . '/schema_order_map.php';
 		if (!is_file($schemaOrderMapFile)) {
-			echo date('H:i:s') . " ERROR: schema order map not found. Run: php generate_schema_order_map.php" . EOL;
+			$this->logError("schema order map not found. Run: php generate_schema_order_map.php");
 			die();
 		}
 
@@ -114,7 +114,7 @@ class ConvertExcel2PKPNativeXML {
 		$this->elementHasLocaleAttribute = $schemaOrderMap['elementsWithLocale'];
 
 		// load data
-		echo date('H:i:s'), " Reading Excel file", EOL;
+		$this->logInfo("Reading Excel file");
 		$objReader = \PhpOffice\PhpSpreadsheet\IOFactory::createReaderForFile($this->xlsxFileName);
 		$objReader->setReadDataOnly(false);
 		$objPhpSpreadsheet = $objReader->load($this->xlsxFileName);
@@ -125,11 +125,12 @@ class ConvertExcel2PKPNativeXML {
 		* Data validation   
 		* -----------
 		*/
-		echo date('H:i:s'), " Validating metadata from Excel sheet", $this->ignoreMissingFiles ? "\033[1;33m (ignore missing files enabled)\033[0m" : "", EOL;
+		$msg = "Validating metadata from Excel sheet" . ($this->ignoreMissingFiles ? " (ignore missing files enabled)" : "");
+		$this->logInfo($msg);
 
 		$errors = $this->validateArticles($articles);
 		if ($errors != "") {
-			echo $errors, EOL;
+			echo "\033[31m" . $errors . "\033[0m";
 			die();
 		}
 
@@ -147,9 +148,9 @@ class ConvertExcel2PKPNativeXML {
 							if ($fileContent) {
 								$article[$key] = $filename;
 								file_put_contents($this->fullFilesFolderPath.$article[$key], $fileContent);
-								echo "Downloaded: ".$article[$key]." from $url\n";
+								$this->logInfo("Downloaded: ".$article[$key]." from $url");
 							} else {
-								echo "\033[31mCould not downlaod article galley from $url !\033[0m\n";
+								$this->logError("Could not downlaod article galley from $url !");
 							}
 						}
 					}
@@ -159,7 +160,7 @@ class ConvertExcel2PKPNativeXML {
 
 		# If only validation is selected, exit
 		if ($this->onlyValidate == 1) {
-			echo date('H:i:s'), " Validation complete ", EOL;
+			$this->logInfo("Validation complete");
 			die();
 		}
 
@@ -173,7 +174,7 @@ class ConvertExcel2PKPNativeXML {
 		* ----------------------------------------
 		*/
 
-		echo date('H:i:s'), " Preparing data for output", EOL;
+		$this->logInfo("Preparing data for output");
 
 		# Create issue and section identification
 		$this->issueKeys = $this->getUniqueKeys($articles, 'issue');
@@ -224,7 +225,7 @@ class ConvertExcel2PKPNativeXML {
 		* --------------------
 		*/
 
-		echo date('H:i:s'), " Starting XML output", EOL;
+		$this->logInfo("Starting XML output");
 
 		$dom = new DOMDocument('1.0', 'UTF-8');
 		$dom->formatOutput = true;
@@ -249,7 +250,7 @@ class ConvertExcel2PKPNativeXML {
 		$numberOfArticles = $xpath->query( "//article", $dom)->length;
 		$numberOfArticleGalleys = $xpath->query( "//xmlns:article_galley", $dom)->length;
 		$numberOfEmbeds = $xpath->query( "//embed", $dom)->length;
-		print_r("Info: Added $numberOfIssues issues, $numberOfSections sections, $numberOfArticles articles, $numberOfArticleGalleys gelleys and $numberOfEmbeds embedded elements to the XML file.\n");
+		$this->logInfo("Added $numberOfIssues issues, $numberOfSections sections, $numberOfArticles articles, $numberOfArticleGalleys gelleys and $numberOfEmbeds embedded elements to the XML file.");
 
 		$dom->save(filename: $this->xlsxFileName.'.xml');
 
@@ -284,14 +285,14 @@ class ConvertExcel2PKPNativeXML {
 	function validateInput() {
 		// Check if the required parameter -x is set
 		if (!isset($this->opts['x']) && !isset($this->xlsxFileName)) {
-			echo "Error: Required parameter -x <xlsx filename> is missing.\n";
+			$this->logError("Required parameter -x <xlsx filename> is missing.");
 			exit(1);
 		}
 		if (isset($this->opts['x'])) $this->xlsxFileName = $this->opts['x'];
 
 		// Check if the required parameter -f is set
 		if (!isset($this->opts['f']) && !isset($this->filesFolderName)) {
-			echo "Error: Required parameter -f <files folder name> is missing.\n";
+			$this->logError("Required parameter -f <files folder name> is missing.");
 			exit(1);
 		}
 		if (isset($this->opts['f'])) $this->filesFolderName = $this->opts['f'];
@@ -299,7 +300,7 @@ class ConvertExcel2PKPNativeXML {
 		// Check if the optional validate flag is set
 		$this->onlyValidate = 0;
 		if (isset($this->opts['v']) || isset($this->opts['validate'])) {
-			echo "Validation only mode is enabled.\n";
+			$this->logInfo("Validation only mode is enabled.");
 			$this->onlyValidate = 1;
 		}
 
@@ -310,10 +311,10 @@ class ConvertExcel2PKPNativeXML {
 
 		// Check if the defaultLocale optional parameter is set
 		if (isset($this->opts['l'])) {
-			echo "Default locale is set with value: " . $this->opts['l'] . "\n";
+			$this->logInfo("Default locale is set with value: " . $this->opts['l']);
 			$this->defaultLocale = $this->opts['l'];
 		} elseif (isset($this->opts['defaultLocale'])) {
-			echo "Default locale is set with value: " . $this->opts['defaultLocale'] . "\n";
+			$this->logInfo("Default locale is set with value: " . $this->opts['defaultLocale']);
 			// The default locale. For alternative locales use language field. For additional locales use locale:fieldName.
 			$this->defaultLocale = $this->opts['defaultLocale'];
 		}
@@ -324,7 +325,7 @@ class ConvertExcel2PKPNativeXML {
 		*/
 
 		if (!is_file($this->xlsxFileName)) {
-			echo date('H:i:s') . " ERROR: Excel file does not exist" . EOL;
+			$this->logError("Excel file does not exist");
 			die();
 		}
 
@@ -335,20 +336,20 @@ class ConvertExcel2PKPNativeXML {
 		$this->fullFilesFolderPath = $this->filesFolderName . "/";
 
 		if (!file_exists($this->fullFilesFolderPath)) {
-			echo date('H:i:s') . " ERROR: given folder does not exist" . EOL;
+			$this->logError("given folder does not exist");
 			die();
 		}
 
 		if ($this->ignoreMissingFiles) {
 			$this->dummySubmissionFilePath = $this->normalizePath(__DIR__ . '/exampleFiles/' . $this->dummySubmissionFileName);
 			if (!is_file($this->dummySubmissionFilePath)) {
-				echo date('H:i:s') . " ERROR: ignoreMissingFiles is enabled but dummy file was not found: " . $this->dummySubmissionFilePath . EOL;
+				$this->logError("ignoreMissingFiles is enabled but dummy file was not found: " . $this->dummySubmissionFilePath);
 				die();
 			}
-			echo date('H:i:s') . " ignoreMissingFiles is enabled. Using dummy submission file: " . $this->dummySubmissionFilePath . EOL;
+			$this->logInfo("ignoreMissingFiles is enabled. Using dummy submission file: " . $this->dummySubmissionFilePath);
 		}
 
-		echo date('H:i:s') . " Basic input validation successful" . EOL;
+		$this->logInfo("Basic input validation successful");
 
 		return true;
 	}
@@ -431,8 +432,7 @@ class ConvertExcel2PKPNativeXML {
 					foreach ($content as $articleId => $article) {
 
 						# Article
-						echo date('H:i:s'), " Adding article: ", $article['title'], EOL;
-
+							$this->logInfo("Adding article: " . $article['title']);
 						[$articleDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'article');
 						$articlesDOM->appendChild($articleDOM);
 
@@ -482,7 +482,7 @@ class ConvertExcel2PKPNativeXML {
 					}
 
 					if ($this->ignoreMissingFiles) {
-						echo "\033[1;33m" . date('H:i:s') . " ignoreMissingFiles substituted " . $this->dummySubmissionReplacementCount . " submission files with dummy content\033[0m" . PHP_EOL;
+						$this->logWarning("ignoreMissingFiles substituted " . $this->dummySubmissionReplacementCount . " submission files with dummy content");
 					}
 	
 					break;
@@ -770,7 +770,7 @@ class ConvertExcel2PKPNativeXML {
 						# create file element
 						$filePath = $this->normalizePath($this->fullFilesFolderPath . $submissionFileData['name']);
 						if (is_file($filePath) || array_key_exists('href', $submissionFileData)) {
-							echo date('H:i:s') . " Adding file " . $filePath . EOL;
+							$this->logInfo("Adding file " . $filePath);
 							$file = $dom->ownerDocument->createElement('file');
 							$subFileDOM->appendChild($file);
 
@@ -789,7 +789,7 @@ class ConvertExcel2PKPNativeXML {
 								$file->appendChild($embed);
 							}
 						} else {
-							echo "\033[1;33m" . date('H:i:s') . ' WARNING: file ' . $filePath . " not found !\033[0m" . PHP_EOL;
+							$this->logWarning("file " . $filePath . " not found !");
 						}
 					}
 					break;
@@ -882,6 +882,18 @@ class ConvertExcel2PKPNativeXML {
 	* -----------
 	*/
 
+	private function logInfo($message) {
+		echo date('H:i:s') . " " . $message . EOL;
+	}
+
+	private function logWarning($message) {
+		echo "\033[1;33m" . date('H:i:s') . " " . $message . "\033[0m" . EOL;
+	}
+
+	private function logError($message) {
+		echo "\033[31m" . date('H:i:s') . " " . $message . "\033[0m" . EOL;
+	}
+
 	// sort elements according to required field order
 	function sortArrayElementsByKey(array $dataArray, array $fieldOrder) {
 
@@ -921,7 +933,7 @@ class ConvertExcel2PKPNativeXML {
 	}
 
 	function createDOMElement($root, $tagname, $namespace = NULL) {
-		echo date('H:i:s') . " Creating element " . $tagname . EOL;
+		$this->logInfo("Creating element " . $tagname);
 		if ($namespace) {
 			$targetDOM = $root->createElementNS($namespace, $tagname);
 			$targetDOM->setAttribute('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
