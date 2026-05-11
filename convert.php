@@ -1,7 +1,7 @@
 <?php
 
 # Usage:
-# php convert.php -x <xslx file> -f <files folder> [-v] [-l <default locale>]
+# php convert.php -x <xslx file> -f <files folder> [-v] [-l <default locale>] [-i]
 
 # Hint: Use debugPrintXML($root) to write DOM to a file 'debug.xml'. $root should be a DOMDocument object.
 
@@ -19,6 +19,10 @@ class ConvertExcel2PKPNativeXML {
 	private $posArgs;
 	private $fullFilesFolderPath;
 	private $onlyValidate = false;
+	private $ignoreMissingFiles = false;
+	private $dummySubmissionFileName = '2017-1-1-1.pdf';
+	private $dummySubmissionFilePath;
+	private $dummySubmissionReplacementCount = 0;
 	private $xlsxFileName = 'articleData.xlsx';
 	private $filesFolderName = 'files';
 
@@ -71,7 +75,7 @@ class ConvertExcel2PKPNativeXML {
 		$this->posArgs = array_slice($argv, $rest_index);
 
 		if (isset($this->opts['h']) || count($this->opts) == 0) {
-			echo "Usage: php convert.php [-c <config.ini file>] [-x <xslx file>] [-f <files folder>] [-v] [-l <default locale>] [-i] [-h]", EOL;
+			echo "Usage: php convert.php [-c <config.ini file>] [-x <xslx file>] [-f <files folder>] [-v] [-l <default locale>] [--ignoreMissingFiles|-i] [-h]", EOL;
 			exit(0);
 		}
 
@@ -121,8 +125,7 @@ class ConvertExcel2PKPNativeXML {
 		* Data validation   
 		* -----------
 		*/
-
-		echo date('H:i:s'), " Validating metadata from Excel sheet", EOL;
+		echo date('H:i:s'), " Validating metadata from Excel sheet", $this->ignoreMissingFiles ? "\033[1;33m (ignore missing files enabled)\033[0m" : "", EOL;
 
 		$errors = $this->validateArticles($articles);
 		if ($errors != "") {
@@ -300,6 +303,11 @@ class ConvertExcel2PKPNativeXML {
 			$this->onlyValidate = 1;
 		}
 
+		// Check if ignoreMissingFiles mode is enabled.
+		$ignoreFromOpts = isset($this->opts['i']) || isset($this->opts['ignoreMissingFiles']);
+		$ignoreFromConfig = filter_var($this->ignoreMissingFiles, FILTER_VALIDATE_BOOLEAN);
+		$this->ignoreMissingFiles = $ignoreFromOpts || $ignoreFromConfig;
+
 		// Check if the defaultLocale optional parameter is set
 		if (isset($this->opts['l'])) {
 			echo "Default locale is set with value: " . $this->opts['l'] . "\n";
@@ -329,6 +337,15 @@ class ConvertExcel2PKPNativeXML {
 		if (!file_exists($this->fullFilesFolderPath)) {
 			echo date('H:i:s') . " ERROR: given folder does not exist" . EOL;
 			die();
+		}
+
+		if ($this->ignoreMissingFiles) {
+			$this->dummySubmissionFilePath = $this->normalizePath(__DIR__ . '/exampleFiles/' . $this->dummySubmissionFileName);
+			if (!is_file($this->dummySubmissionFilePath)) {
+				echo date('H:i:s') . " ERROR: ignoreMissingFiles is enabled but dummy file was not found: " . $this->dummySubmissionFilePath . EOL;
+				die();
+			}
+			echo date('H:i:s') . " ignoreMissingFiles is enabled. Using dummy submission file: " . $this->dummySubmissionFilePath . EOL;
 		}
 
 		echo date('H:i:s') . " Basic input validation successful" . EOL;
@@ -437,7 +454,10 @@ class ConvertExcel2PKPNativeXML {
 							$elementName = strtolower($matches[1]);
 							$id = $matches[2];
 							if (strlen($article[$key]) > 0) {
-								if (
+								if ($this->ignoreMissingFiles && $elementName === 'name') {
+									$fileData[$id]['name'] = $this->dummySubmissionFileName;
+									$this->dummySubmissionReplacementCount++;
+								} elseif (
 									(str_starts_with($article[$key], 'http://')) ||
 									(str_starts_with($article[$key], 'https://'))
 								) {
@@ -459,6 +479,10 @@ class ConvertExcel2PKPNativeXML {
 						$articleDOM = $this->processData($articleDOM, [
 							'publication' => $article
 						]);
+					}
+
+					if ($this->ignoreMissingFiles) {
+						echo "\033[1;33m" . date('H:i:s') . " ignoreMissingFiles substituted " . $this->dummySubmissionReplacementCount . " submission files with dummy content\033[0m" . PHP_EOL;
 					}
 	
 					break;
@@ -1108,22 +1132,24 @@ class ConvertExcel2PKPNativeXML {
 			$fileKeys = $this->getUniqueKeys([$article], 'fileName');
 			foreach ($fileKeys as $fileKey) {
 				$i = (int) filter_var($fileKey, FILTER_SANITIZE_NUMBER_INT);
+				$fileName = $article['fileName' . $i] ?? '';
 
-				if (isset($article['fileName' . $i]) && $article['fileName' . $i] && !preg_match("@^https?://@", $article['fileName' . $i])) {
-
-					$fileCheck = $this->fullFilesFolderPath . $article['fileName' . $i];
-
-					if (!is_file($fileCheck))
-						$errors .= date('H:i:s') . " ERROR: file " . $i . " missing " . $fileCheck . EOL;
-
-					if (empty($article['galleyLabel' . $i])) {
-						$errors .= date('H:i:s') . " ERROR: galleyLabel " . $i . " missing for article " . $articleRow . EOL;
-					}
-					if (empty($article['galleyLocale' . $i])) {
-						$errors .= date('H:i:s') . " ERROR: galleyLocale " . $i . "  missingfor article " . $articleRow . EOL;
-					}
-				} else {
+				if ($fileName === '') {
 					break;
+				}
+
+				if (!preg_match("@^https?://@", $fileName)) {
+					$fileCheck = $this->fullFilesFolderPath . $fileName;
+					if (!is_file($fileCheck) && !$this->ignoreMissingFiles) {
+						$errors .= date('H:i:s') . " ERROR: file " . $i . " missing " . $fileCheck . EOL;
+					}
+				}
+
+				if (empty($article['galleyLabel' . $i])) {
+					$errors .= date('H:i:s') . " ERROR: galleyLabel " . $i . " missing for article " . $articleRow . EOL;
+				}
+				if (empty($article['galleyLocale' . $i])) {
+					$errors .= date('H:i:s') . " ERROR: galleyLocale " . $i . "  missingfor article " . $articleRow . EOL;
 				}
 			}
 		}
