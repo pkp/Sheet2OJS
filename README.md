@@ -81,6 +81,7 @@ For larger imports it might be necessary to temporarily increase your OJS server
 | disciplines | History; Political science; Astronomy |  | x |
 | subjects | Subject1; Subject2; ... |  | x |
 | citations | Citation1; Citation2; ... |  |   |
+| articleDatePublished | Article publication date, yyyy-mm-dd. Optional — if not provided, the issue's publication date (issueDatePublished) is used instead. |  |   |
 | articleCopyrightYear | 2005 |  |   |
 | articleCopyrightHolder | "John Doe" |  |   |
 | articleLicenseUrl | http://creativecommons.org/licenses/by/4.0 |  |   |
