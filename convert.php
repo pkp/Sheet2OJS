@@ -432,7 +432,7 @@ class ConvertExcel2PKPNativeXML {
 					foreach ($content as $articleId => $article) {
 
 						# Article
-							$this->logInfo("Adding article: " . $article['title']);
+						$this->logInfo("Adding article: " . $article['title']);
 						[$articleDOM, $pos] = $this->createDOMElement($dom->ownerDocument, 'article');
 						$articlesDOM->appendChild($articleDOM);
 
@@ -511,6 +511,12 @@ class ConvertExcel2PKPNativeXML {
 					if ($datePublishedList->length > 0) {
 						$publicationDOM->setAttribute('date_published', $datePublishedList[0]->textContent);
 					}
+
+					// Optional per-article publication date
+					if (isset($content['articleDatePublished']) && strlen((string)$content['articleDatePublished']) > 0) {
+						$publicationDOM->setAttribute('date_published', $content['articleDatePublished']);
+					}
+					unset($content['articleDatePublished']);
 					
 					$publicationDOM->setAttribute('section_ref', $content['sectionAbbrev']);
 					unset($content['sectionAbbrev']);
